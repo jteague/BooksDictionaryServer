@@ -1,3 +1,7 @@
+# private (configs, etc)
+private/*
+process.env
+
 # Logs
 logs
 *.log
