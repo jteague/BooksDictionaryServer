@@ -1,12 +1,6 @@
-var fs = require('fs');
 var path = require('path');
-const bent = require('bent')
-const getJSON = bent('json')
 const MongoClient = require('mongodb').MongoClient;
 const ObjectId = require('mongodb').ObjectId;
-const semverMajor = require('semver/functions/major')
-const semverGt = require('semver/functions/gt')
-const packageJson = require('../package.json');
 const { param } = require('../routes/routes');
 const processEnvPath = path.join(__dirname, '..', 'process.env');
 const envResult = require('dotenv').config({ path: processEnvPath })
@@ -17,80 +11,61 @@ if (envResult.error) {
 exports.getAllBooks = async (request, response) => {
     const uri = process.env.DATABASE_URI;
     const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
-    client.connect(err => {
-        if (err) {
-            logErrorAndCloseClient(err);
-            return;
-        }
-        
-        client.db("books_dictionary").collection("books").find({}).toArray()
-        .then((records, findError) => {
-            if (findError) {
-                logErrorAndCloseClient(findError, client);
-                return;
-            }
-            if (records) {
-                console.log("Found the following records: " + records.length);
-                response.setHeader('Content-Type', 'application/json');
-                response.end(JSON.stringify(records));
-                client.close();
-            }
-        });
-    });
+
+    try {
+        await client.connect();
+        const db = client.db("books_dictionary");
+        const books = db.collection("books");
+        const records = await books.find({}).toArray();
+
+        console.log('getAllBooks::number of records: ' + records.length);
+        response.setHeader('Content-Type', 'application/json');
+        response.end(JSON.stringify(records));
+    } 
+    catch(err) {
+        console.error('Failed to get all books: ' + err);
+        response.setHeader('Content-Type', 'application/json');
+        response.end(JSON.stringify({}));
+    } 
+    finally {
+        client.close();
+    }
 }
 
-exports.viewBook = async(request, response) => {
-    const uri = process.env.DATABASE_URI;
-    const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
-    client.connect(err => {
-        if (err) {
-            logErrorAndCloseClient(err);
-            return;
-        }
-        
-        let find = client.db("books_dictionary").collection("books").find({});
-        if (request.param('id')) {
-            find = client.db("books_dictionary").collection("books").findOne({_id: ObjectId(request.param('id'))});
-        }
-        else if (request.param('title')) {
-            find = client.db("books_dictionary").collection("books").find({title: request.param('title')});
-        }
-        else if (request.param('author')) {
-            find = client.db("books_dictionary").collection("books").find({author: request.param('author')});
-        }
-        else if (request.param('released')) {
-            find = client.db("books_dictionary").collection("books").find({released: 1985});
-        }
+exports.addBook = async (request, response) => {
 
-        find.toArray()
-        .then((records, findError) => {
-            if (findError) {
-                logErrorAndCloseClient(findError, client);
-                return;
-            }
-            if (records) {
-                console.log("Found the following records: " + records.length);
-                response.setHeader('Content-Type', 'application/json');
-                response.end(JSON.stringify(records));
-                client.close();
-            }
-        });
-    });
+    if (!request.body) {
+        console.error('Failed to insert book: no body in request');
+        response.setHeader('Content-Type', 'application/json');
+        response.end({result: false, message: 'no body in request'});
+        return;
+    }
+
+    // todo: clean the inputs before adding to the DB
+    var book = request.body;
+
+    const uri = process.env.DATABASE_URI;
+    const client = new MongoClient(uri, {useNewUrlParser: true, useUnifiedTopology: true});
+
+    try {
+        await client.connect();
+        const db = client.db("books_dictionary");
+        const books = db.collection("books");
+        const result = await books.insertOne(book);
+        console.log(`${result.insertedCount} books were inserted with the _id: ${result.insertedId}`);
+    }
+    catch(err) {
+        console.error('Failed to insert book: ' + book);
+    }
+    finally {
+        await client.close();
+    }
 }
 
 exports.home = (req, res) => {
     res.render('home.hbs')
 }
 
-exports.addBook = (req, res) => {
-    res.render('addBook.hbs')
-}
-
 exports.book = (req, res) => {
     res.render('book.hbs')
-}
-
-function logErrorAndCloseClient(findError, client) {
-    console.error(findError);
-    client.close();
 }
