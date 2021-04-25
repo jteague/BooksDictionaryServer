@@ -62,6 +62,38 @@ exports.addBook = async (request, response) => {
     }
 }
 
+exports.deleteBook = async (request, response) => {
+    if (!request.body) {
+        console.error('Failed to delete book: no body in request');
+        response.setHeader('Content-Type', 'application/json');
+        response.end({result: false, message: 'no body in request'});
+        return;
+    }
+
+    // todo: clean the inputs before adding to the DB
+    var book = request.body;
+
+    const uri = process.env.DATABASE_URI;
+    const client = new MongoClient(uri, {useNewUrlParser: true, useUnifiedTopology: true});
+
+    try {
+        await client.connect();
+        const db = client.db("books_dictionary");
+        const books = db.collection("books");
+        const result = await books.deleteOne(book);
+        console.log('Mongo delete result: ' + result);
+        response.status = 200;
+    }
+    catch(err) {
+        console.error('Failed to deleted book: ' + book);
+        response.status = 500;
+    }
+    finally {
+        await client.close();
+        //response.end({result: false, message: 'no body in request'});
+    }
+}
+
 exports.home = (req, res) => {
     res.render('home.hbs')
 }
