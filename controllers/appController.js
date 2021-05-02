@@ -53,9 +53,17 @@ exports.addBook = async (request, response) => {
         const books = db.collection("books");
         const result = await books.insertOne(book);
         console.log(`${result.insertedCount} books were inserted with the _id: ${result.insertedId}`);
+        
+        response.status = 200;
+        response.setHeader('Content-Type', 'application/json');
+        response.end(JSON.stringify({success: result.result.n > 0, book}));
     }
     catch(err) {
         console.error('Failed to insert book: ' + book);
+        
+        response.status = 500;
+        response.setHeader('Content-Type', 'application/json');
+        response.end(JSON.stringify({success: result.result.n > 0, book}));
     }
     finally {
         await client.close();
@@ -82,15 +90,20 @@ exports.deleteBook = async (request, response) => {
         const books = db.collection("books");
         const result = await books.deleteOne(book);
         console.log('Mongo delete result: ' + result);
+        
         response.status = 200;
+        response.setHeader('Content-Type', 'application/json');
+        response.end(JSON.stringify({success: result.result.n > 0, book}));
     }
     catch(err) {
         console.error('Failed to deleted book: ' + book);
+        
         response.status = 500;
+        response.setHeader('Content-Type', 'application/json');
+        response.end(JSON.stringify({success: result.result.n > 0, book}));
     }
     finally {
         await client.close();
-        //response.end({result: false, message: 'no body in request'});
     }
 }
 
