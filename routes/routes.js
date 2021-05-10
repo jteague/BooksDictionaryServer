@@ -14,5 +14,6 @@ router.get('/book', appController.book)
 router.get('/api/getAllBooks', appController.getAllBooks)
 router.post('/api/addBook', jsonParser, appController.addBook)
 router.delete('/api/deleteBook', jsonParser, appController.deleteBook)
+router.patch('/api/editBook', jsonParser, appController.editBook)
 
 module.exports = router

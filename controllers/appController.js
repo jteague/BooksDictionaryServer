@@ -2,6 +2,7 @@ var path = require('path');
 const MongoClient = require('mongodb').MongoClient;
 const ObjectId = require('mongodb').ObjectId;
 const { param } = require('../routes/routes');
+const BooksService = require('../services/booksService.js');
 const processEnvPath = path.join(__dirname, '..', 'process.env');
 const envResult = require('dotenv').config({ path: processEnvPath })
 if (envResult.error) {
@@ -9,26 +10,15 @@ if (envResult.error) {
 }
 
 exports.getAllBooks = async (request, response) => {
-    const uri = process.env.DATABASE_URI;
-    const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
-
-    try {
-        await client.connect();
-        const db = client.db("books_dictionary");
-        const books = db.collection("books");
-        const records = await books.find({}).toArray();
-
-        console.log('getAllBooks::number of records: ' + records.length);
-        response.setHeader('Content-Type', 'application/json');
-        response.end(JSON.stringify(records));
-    } 
-    catch(err) {
-        console.error('Failed to get all books: ' + err);
-        response.setHeader('Content-Type', 'application/json');
-        response.end(JSON.stringify({}));
-    } 
-    finally {
-        client.close();
+    var booksService = new BooksService();
+    const result = await booksService.fetchBooks();
+    response.setHeader('Content-Type', 'application/json');
+    if (result.success === true) {
+        response.status = 200;
+        response.end(result);
+    } else {
+        response.status = 500;
+        response.end(result);
     }
 }
 
@@ -43,30 +33,15 @@ exports.addBook = async (request, response) => {
 
     // todo: clean the inputs before adding to the DB
     var book = request.body;
-
-    const uri = process.env.DATABASE_URI;
-    const client = new MongoClient(uri, {useNewUrlParser: true, useUnifiedTopology: true});
-
-    try {
-        await client.connect();
-        const db = client.db("books_dictionary");
-        const books = db.collection("books");
-        const result = await books.insertOne(book);
-        console.log(`${result.insertedCount} books were inserted with the _id: ${result.insertedId}`);
-        
+    var booksService = new BooksService();
+    const result = await booksService.addBook(book);
+    response.setHeader('Content-Type', 'application/json');
+    if (result.success === true) {
         response.status = 200;
-        response.setHeader('Content-Type', 'application/json');
-        response.end(JSON.stringify({success: result.result.n > 0, book}));
-    }
-    catch(err) {
-        console.error('Failed to insert book: ' + book);
-        
+        response.end(result);
+    } else {
         response.status = 500;
-        response.setHeader('Content-Type', 'application/json');
-        response.end(JSON.stringify({success: result.result.n > 0, book}));
-    }
-    finally {
-        await client.close();
+        response.end(result);
     }
 }
 
@@ -81,29 +56,38 @@ exports.deleteBook = async (request, response) => {
     // todo: clean the inputs before adding to the DB
     var book = request.body;
 
-    const uri = process.env.DATABASE_URI;
-    const client = new MongoClient(uri, {useNewUrlParser: true, useUnifiedTopology: true});
-
-    try {
-        await client.connect();
-        const db = client.db("books_dictionary");
-        const books = db.collection("books");
-        const result = await books.deleteOne(book);
-        console.log('Mongo delete result: ' + result);
-        
+    var booksService = new BooksService();
+    const result = await booksService.deleteBook(book);
+    response.setHeader('Content-Type', 'application/json');
+    if (result.success === true) {
         response.status = 200;
-        response.setHeader('Content-Type', 'application/json');
-        response.end(JSON.stringify({success: result.result.n > 0, book}));
-    }
-    catch(err) {
-        console.error('Failed to deleted book: ' + book);
-        
+        response.end(result);
+    } else {
         response.status = 500;
-        response.setHeader('Content-Type', 'application/json');
-        response.end(JSON.stringify({success: result.result.n > 0, book}));
+        response.end(result);
     }
-    finally {
-        await client.close();
+}
+
+exports.editBook = async (request, response) => {
+
+    if (!request.body) {
+        console.error('Failed to edit book: no body in request');
+        response.setHeader('Content-Type', 'application/json');
+        response.end({result: false, message: 'no body in request'});
+        return;
+    }
+
+    // todo: clean the inputs before adding to the DB
+    var book = request.body;
+    var booksService = new BooksService();
+    const result = await booksService.editBook(book);
+    response.setHeader('Content-Type', 'application/json');
+    if (result.success === true) {
+        response.status = 200;
+        response.end(result);
+    } else {
+        response.status = 500;
+        response.end(result);
     }
 }
 
