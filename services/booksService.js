@@ -1,6 +1,7 @@
 var path = require('path');
 const MongoClient = require('mongodb').MongoClient;
 const ObjectId = require('mongodb').ObjectId;
+const sanitize = require('mongo-sanitize');
 const processEnvPath = path.join(__dirname, '..', 'process.env');
 const envResult = require('dotenv').config({ path: processEnvPath })
 if (envResult.error) {
@@ -14,6 +15,28 @@ module.exports = class BooksService {
         this.client = new MongoClient(this.uri, {useNewUrlParser: true, useUnifiedTopology: true});
     }
 
+    sanitizeBook(book) {
+        let newBook = {};
+        if (book.id) {
+            newBook = {
+                id: sanitize(book.id),
+                title: sanitize(book.title),
+                author: sanitize(book.author),
+                released: sanitize(book.released),
+                image: sanitize(book.image),
+            }
+        } else {
+            newBook = {
+                title: sanitize(book.title),
+                author: sanitize(book.author),
+                released: sanitize(book.released),
+                image: sanitize(book.image),
+            }
+        }
+
+        return newBook;
+    }
+
     async fetchBooks() {
         try {
             await this.client.connect();
@@ -24,8 +47,8 @@ module.exports = class BooksService {
         }
         catch(err) {
             console.error('Failed to get all books: ' + err);
-            response.end(JSON.stringify({success: true, books: records}));
-        } 
+            response.end(JSON.stringify({success: false, books: null}));
+        }
         finally {
             this.client.close();
         }
@@ -33,15 +56,16 @@ module.exports = class BooksService {
 
     async addBook(book) {
         try {
+            var cleanBook = this.sanitizeBook(book);
             await this.client.connect();
             const db = this.client.db("books_dictionary").collection("books");
-            const result = await db.insertOne(book);
+            const result = await db.insertOne(cleanBook);
             console.log(`${result.insertedCount} book was inserted with the _id: ${result.insertedId}`);
-            return JSON.stringify({success: result.result.n > 0, book: book});
+            return JSON.stringify({success: result.result.n > 0, book: cleanBook});
         }
         catch(err) {
-            console.error('Failed to insert book: ' + book + '::Error: ' + err);
-            return JSON.stringify({success: result.result.n > 0, book: book});
+            console.error('Failed to insert book: ' + cleanBook + '::Error: ' + err);
+            return JSON.stringify({success: false, book: cleanBook});
         }
         finally {
             await this.client.close();
@@ -50,13 +74,15 @@ module.exports = class BooksService {
 
     async editBook(book) {
         try {
-            const query = {"_id": ObjectId(book.id)};
+            var cleanBook = this.sanitizeBook(book);
+
+            const query = {"_id": ObjectId(cleanBook.id)};
             const update = {
                 $set: {
-                    title: book.title,
-                    author: book.author,
-                    released: book.released,
-                    image: book.image
+                    title: cleanBook.title,
+                    author: cleanBook.author,
+                    released: cleanBook.released,
+                    image: cleanBook.image
                 }
             };
             const options = { "upsert": false };
@@ -64,29 +90,30 @@ module.exports = class BooksService {
             await this.client.connect();
             const db = this.client.db("books_dictionary").collection("books");
             const result = await db.updateOne(query, update, options);
-            console.log(`'${book.title}' book was updated with using _id: ${book.id}`);
-            return JSON.stringify({success: result.result.n > 0, book: book});
+            console.log(`'${cleanBook.title}' book was updated with using _id: ${cleanBook.id}`);
+            return JSON.stringify({success: result.result.n > 0, book: cleanBook});
         }
         catch(err) {
-            console.error('Failed to edit book: ' + book + '::Error: ' + err);
-            return JSON.stringify({success: result.result.n > 0, book: book});
+            console.error('Failed to edit book: ' + cleanBook + '::Error: ' + err);
+            return JSON.stringify({success: false, book: cleanBook});
         }
         finally {
             await this.client.close();
         }
     }
 
-    async deleteBook(book) {
+    async deleteBook(bookId) {
         try {
+            var cleanId = sanitize(bookId);
             await this.client.connect();
             const db = this.client.db("books_dictionary").collection("books");
-            const result = await db.deleteOne({"_id": ObjectId(book.id)});
+            const result = await db.deleteOne({"_id": new ObjectId(cleanId.id)});
             console.log('Mongo delete result: ' + result);
-            return JSON.stringify({success: result.result.n > 0, book: book});
+            return JSON.stringify({success: result.result.n > 0, book: cleanId});
         }
         catch(err) {
-            console.error('Failed to insert book: ' + book + '::Error: ' + err);
-            return JSON.stringify({success: result.result.n > 0, book: book});
+            console.error('Failed to delete book: ' + cleanId + '::Error: ' + err);
+            return JSON.stringify({success: false, book: cleanId, msg: err.toString()});
         }
         finally {
             await this.client.close();

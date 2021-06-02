@@ -1,7 +1,4 @@
 var path = require('path');
-const MongoClient = require('mongodb').MongoClient;
-const ObjectId = require('mongodb').ObjectId;
-const { param } = require('../routes/routes');
 const BooksService = require('../services/booksService.js');
 const processEnvPath = path.join(__dirname, '..', 'process.env');
 const envResult = require('dotenv').config({ path: processEnvPath })
@@ -31,7 +28,6 @@ exports.addBook = async (request, response) => {
         return;
     }
 
-    // todo: clean the inputs before adding to the DB
     var book = request.body;
     var booksService = new BooksService();
     const result = await booksService.addBook(book);
@@ -53,11 +49,10 @@ exports.deleteBook = async (request, response) => {
         return;
     }
 
-    // todo: clean the inputs before adding to the DB
-    var book = request.body;
+    var id = request.body;
 
     var booksService = new BooksService();
-    const result = await booksService.deleteBook(book);
+    const result = await booksService.deleteBook(id);
     response.setHeader('Content-Type', 'application/json');
     if (result.success === true) {
         response.status = 200;
@@ -77,7 +72,6 @@ exports.editBook = async (request, response) => {
         return;
     }
 
-    // todo: clean the inputs before adding to the DB
     var book = request.body;
     var booksService = new BooksService();
     const result = await booksService.editBook(book);
